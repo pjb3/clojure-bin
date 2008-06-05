@@ -15,6 +15,7 @@ Options:
 
 # Find the real path to Clojure's home directory if $0 is a symlink
 program="$0"
+
 while [ -h "$program" ]; do 
     ls=`ls -ld "$program"`
     link=`expr "$ls" : '.*-> \(.*\)$'`
@@ -25,8 +26,10 @@ while [ -h "$program" ]; do
     fi
 done
 
-clojure_home=`dirname $program`      # the /bin dir
-clojure_home=`dirname $clojure_home` # the real Clojure home
+clojure_home=`dirname "$program"`        # the /bin dir
+clojure_home=`dirname "$clojure_home"`   # the real Clojure home
+clojure_home=`cd "$clojure_home" && pwd` # the absolute path
+
 java_opts="-Dpid=$$ $JAVA_OPTS"      # set the pid for SLIME
 main_class="clojure.lang.Script"
 files=""
