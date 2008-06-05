@@ -1,0 +1,77 @@
+#!/bin/sh
+#
+# A launcher script for Clojure programs.
+#
+
+usage="\
+usage: clojure [options] [file1 [file2] ...]
+
+Options:
+  --help, -h          show this message
+  --classpath, -cp    
+  --interactive, -i   run the interactive Clojure repl
+  --java-opts, -j     add options to be passed on to the JVM
+"
+
+# Find the real path to Clojure's home directory if $0 is a symlink
+program="$0"
+while [ -h "$program" ]; do 
+    ls=`ls -ld "$program"`
+    link=`expr "$ls" : '.*-> \(.*\)$'`
+    if expr "$link" : '.*/.*' >/dev/null; then
+        program="$link"
+    else
+        program="`dirname $program`/$link"
+    fi
+done
+
+clojure_home=`dirname $program`      # the /bin dir
+clojure_home=`dirname $clojure_home` # the real Clojure home
+java_opts="-Dpid=$$ $JAVA_OPTS"      # set the pid for SLIME
+main_class="clojure.lang.Script"
+files=""
+
+for arg in "$@"; do
+    case $arg in
+	-h|--help)
+	    echo "$usage"
+	    exit 1
+	    ;;
+	-cp|--classpath)
+	    clojure_classpath="$clojure_classpath:$2"
+	    shift
+	    shift
+	    ;;
+        -i|--interactive) 
+	    main_class="clojure.lang.Repl"
+            shift 
+	    ;;
+	-j|--java-opts)
+	    java_opts="$java_opts $2"
+	    shift
+	    shift 
+	    ;;
+	*) # Assume that any args which aren't a switch is a file to load
+	    files="$files $1"
+	    shift
+	    ;;
+    esac
+done
+
+# If $files is empty, we want to run the repl regardless of the -i switch
+if [ -z "$files" ]; then
+    main_class="clojure.lang.Repl"
+fi
+
+# If $CLOJURE_LIB is a directory, we'll add it and any jars inside it to the classpath.
+if [ -d "$CLOJURE_LIB" ]; then
+    clojure_classpath="$clojure_classpath:$CLOJURE_LIB"
+    for jar in "$CLOJURE_LIB"/*.jar; do
+	clojure_classpath="$clojure_classpath:$jar"
+    done
+fi
+
+# Make sure we've got the Clojure jar in our classpath
+clojure_classpath=".:$clojure_home/clojure.jar"
+
+exec java $java_opts -cp $clojure_classpath $main_class $files
