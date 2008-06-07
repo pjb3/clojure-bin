@@ -15,7 +15,6 @@ Options:
 
 # Find the real path to Clojure's home directory if $0 is a symlink
 program="$0"
-
 while [ -h "$program" ]; do 
     ls=`ls -ld "$program"`
     link=`expr "$ls" : '.*-> \(.*\)$'`
@@ -25,12 +24,12 @@ while [ -h "$program" ]; do
         program="`dirname $program`/$link"
     fi
 done
-
 clojure_home=`dirname "$program"`        # the /bin dir
 clojure_home=`dirname "$clojure_home"`   # the real Clojure home
 clojure_home=`cd "$clojure_home" && pwd` # the absolute path
 
-java_opts="-Dpid=$$ $JAVA_OPTS"      # set the pid for SLIME
+clojure_classpath="."
+java_opts="-Dpid=$$"      # set the pid for SLIME
 main_class="clojure.lang.Script"
 files=""
 
@@ -66,15 +65,7 @@ if [ -z "$files" ]; then
     main_class="clojure.lang.Repl"
 fi
 
-# If $CLOJURE_LIB is a directory, we'll add it and any jars inside it to the classpath.
-if [ -d "$CLOJURE_LIB" ]; then
-    clojure_classpath="$clojure_classpath:$CLOJURE_LIB"
-    for jar in "$CLOJURE_LIB"/*.jar; do
-	clojure_classpath="$clojure_classpath:$jar"
-    done
-fi
-
 # Make sure we've got the Clojure jar in our classpath
-clojure_classpath=".:$clojure_home/clojure.jar"
+clojure_classpath="$clojure_home/clojure.jar:$clojure_classpath"
 
-exec java $java_opts -cp $clojure_classpath $main_class $files
+exec java "$java_opts" -cp "$clojure_classpath" "$main_class" "$files"
