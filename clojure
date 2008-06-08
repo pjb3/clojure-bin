@@ -1,71 +1,111 @@
 #!/bin/sh
 #
-# A launcher script for Clojure programs.
+# A launcher script for Clojure programs. These environment variables can be
+# used to configure the script:
 #
+#   CLOJURE_HOME
+#       The root directory where Clojure is installed.
+#   CLOJURE_JAVA
+#       The name of the java executable used to run Clojure.
+#   CLOJURE_JAVA_OPTS
+#       Additional options to be passed to the java executable.
+#   CLOJURE_CLASSPATH
+#       A path to be added to Clojure's classpath.
+#   CLOJURE_LIBRARY_PATH
+#       A path to be searched for native code such as DLL's or JNI
+#       libraries. This gets added to the Java options as
+#       "-Djava.library.path=$CLOJURE_LIBRARY_PATH".
+#   CLOJURE_LIB
+#       This directory, and any jars inside it, will be automatically
+#       added to Clojure's classpath.
+#
+# TODO:
+#   make CLOJURE_LIB a path instead of a single directory
+#   allow for adding to CLOJURE_LIB from the command line
 
 usage="\
 usage: clojure [options] [file1 [file2] ...]
 
 Options:
   --help, -h          show this message
-  --classpath, -cp    
-  --interactive, -i   run the interactive Clojure repl
+  --java-cmd, -J      the Java executable to use
   --java-opts, -j     add options to be passed on to the JVM
+  --classpath, -cp    add to Clojure's classpath
+  --library-path, -L  add to the path to search for native libraries
+  --interactive, -i   run the interactive Clojure repl
 "
 
-# Find the real path to Clojure's home directory if $0 is a symlink
-program="$0"
-while [ -h "$program" ]; do 
-    ls=`ls -ld "$program"`
-    link=`expr "$ls" : '.*-> \(.*\)$'`
-    if expr "$link" : '.*/.*' >/dev/null; then
-        program="$link"
-    else
-        program="`dirname $program`/$link"
-    fi
-done
-clojure_home=`dirname "$program"`        # the /bin dir
-clojure_home=`dirname "$clojure_home"`   # the real Clojure home
-clojure_home=`cd "$clojure_home" && pwd` # the absolute path
+if [ ! "$CLOJURE_HOME" ]; then
+    # Find the real path to Clojure's home directory if $0 is a symlink
+    program="$0"
+    while [ -h "$program" ]; do
+        ls=`ls -ld "$program"`
+        link=`expr "$ls" : '.*-> \(.*\)$'`
+        if expr "$link" : '.*/.*' >/dev/null; then
+            program="$link"
+        else
+            program="`dirname $program`/$link"
+        fi
+    done
+    script_dir=`dirname "$program"`
+    relative_clojure_home=`dirname "$script_dir"`
+    CLOJURE_HOME=`cd "$relative_clojure_home" && pwd`
+fi
 
-clojure_classpath="."
-java_opts="-Dpid=$$"      # set the pid for SLIME
-main_class="clojure.lang.Script"
-files=""
+if [ ! "$CLOJURE_JAVA" ]; then
+    CLOJURE_JAVA="java";
+fi
+
+if [ ! "$CLOJURE_JAVA_OPTS" ]; then
+    CLOJURE_JAVA_OPTS="-Dpid=$$"; # set the pid for SLIME
+fi
+
+if [ ! "$CLOJURE_CLASSPATH" ]; then
+    CLOJURE_CLASSPATH="."
+fi
+CLOJURE_CLASSPATH="$CLOJURE_HOME/clojure.jar:$CLOJURE_CLASSPATH"
+
+if [ -d "$CLOJURE_LIB" ]; then
+    CLOJURE_CLASSPATH="$CLOJURE_CLASSPATH:$CLOJURE_LIB"
+    for jar in "$CLOJURE_LIB"/*.jar; do
+        CLOJURE_CLASSPATH="$CLOJURE_CLASSPATH:$jar"
+    done
+fi
+
+main="clojure.lang.Script"
 
 for arg in "$@"; do
     case $arg in
-	-h|--help)
-	    echo "$usage"
-	    exit 1
-	    ;;
-	-cp|--classpath)
-	    clojure_classpath="$clojure_classpath:$2"
-	    shift
-	    shift
-	    ;;
-        -i|--interactive) 
-	    main_class="clojure.lang.Repl"
-            shift 
-	    ;;
-	-j|--java-opts)
-	    java_opts="$java_opts $2"
-	    shift
-	    shift 
-	    ;;
-	*) # Assume that any args which aren't a switch is a file to load
-	    files="$files $1"
-	    shift
-	    ;;
+        -h|--help)
+            echo "$usage"; exit 1;;
+        -J|--java-cmd)
+            CLOJURE_JAVA="$2"; shift; shift;;
+        -j|--java-opts)
+            CLOJURE_JAVA_OPTS="$CLOJURE_JAVA_OPTS $2"; shift; shift;;
+        -cp|--classpath)
+            CLOJURE_CLASSPATH="$CLOJURE_CLASSPATH:$2"; shift; shift;;
+        -L|--library-path)
+            if [ "$CLOJURE_LIBRARY_PATH" ]; then
+                CLOJURE_LIBRARY_PATH="$CLOJURE_LIBRARY_PATH:$2";
+            else
+                CLOJURE_LIBRARY_PATH="$2";
+            fi
+            shift; shift;;
+        -i|--interactive)
+            main="clojure.lang.Repl"; shift;;
+        *) break;;
     esac
 done
 
-# If $files is empty, we want to run the repl regardless of the -i switch
-if [ -z "$files" ]; then
-    main_class="clojure.lang.Repl"
+# If we didn't get any files to load on the commandline, we want to run the
+# repl regardless of the -i switch
+if [ $# -eq 0 ]; then
+    main="clojure.lang.Repl"
 fi
 
-# Make sure we've got the Clojure jar in our classpath
-clojure_classpath="$clojure_home/clojure.jar:$clojure_classpath"
+# Add CLOJURE_LIBRARY_PATH to the Java options if necessary
+if [ "$CLOJURE_LIBRARY_PATH" ]; then
+    CLOJURE_JAVA_OPTS="$CLOJURE_JAVA_OPTS -Djava.library.path=$CLOJURE_LIBRARY_PATH"
+fi
 
-exec java "$java_opts" -cp "$clojure_classpath" "$main_class" "$files"
+exec "$CLOJURE_JAVA" "$CLOJURE_JAVA_OPTS" -cp "$CLOJURE_CLASSPATH" $main "$@"
