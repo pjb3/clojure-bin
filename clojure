@@ -108,4 +108,7 @@ if [ "$CLOJURE_LIBRARY_PATH" ]; then
     CLOJURE_JAVA_OPTS="$CLOJURE_JAVA_OPTS -Djava.library.path=$CLOJURE_LIBRARY_PATH"
 fi
 
-exec "$CLOJURE_JAVA" "$CLOJURE_JAVA_OPTS" -cp "$CLOJURE_CLASSPATH" $main "$@"
+# Load ~/.clojure on startup if it exists
+init=`[ -e $HOME/.clojure ] && echo $HOME/.clojure`
+
+exec "$CLOJURE_JAVA" "$CLOJURE_JAVA_OPTS" -cp "$CLOJURE_CLASSPATH" $main $init "$@"
