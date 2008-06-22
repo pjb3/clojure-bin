@@ -103,6 +103,11 @@ if [ $# -eq 0 ]; then
     main="clojure.lang.Repl"
 fi
 
+# If the classpath contains the JLine jar, use the JLine console runner
+if expr "$CLOJURE_CLASSPATH" : ".*jline.*\.jar" >/dev/null; then 
+    main="jline.ConsoleRunner $main"
+fi
+
 # Add CLOJURE_LIBRARY_PATH to the Java options if necessary
 if [ "$CLOJURE_LIBRARY_PATH" ]; then
     CLOJURE_JAVA_OPTS="$CLOJURE_JAVA_OPTS -Djava.library.path=$CLOJURE_LIBRARY_PATH"
