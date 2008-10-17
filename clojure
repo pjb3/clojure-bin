@@ -31,6 +31,7 @@ Options:
   --java-cmd, -J      the Java executable to use
   --java-opts, -j     add options to be passed on to the JVM
   --classpath, -cp    add to Clojure's classpath
+  --lib, -l           add to the path all the jars in this directory
   --library-path, -L  add to the path to search for native libraries
   --interactive, -i   run the interactive Clojure repl
 "
@@ -65,13 +66,6 @@ if [ ! "$CLOJURE_CLASSPATH" ]; then
 fi
 CLOJURE_CLASSPATH="$CLOJURE_HOME/clojure.jar:$CLOJURE_CLASSPATH"
 
-if [ -d "$CLOJURE_LIB" ]; then
-    CLOJURE_CLASSPATH="$CLOJURE_CLASSPATH:$CLOJURE_LIB"
-    for jar in "$CLOJURE_LIB"/*.jar; do
-        CLOJURE_CLASSPATH="$CLOJURE_CLASSPATH:$jar"
-    done
-fi
-
 main="clojure.lang.Script"
 
 for arg in "$@"; do
@@ -84,6 +78,8 @@ for arg in "$@"; do
             CLOJURE_JAVA_OPTS="$CLOJURE_JAVA_OPTS $2"; shift; shift;;
         -cp|--classpath)
             CLOJURE_CLASSPATH="$CLOJURE_CLASSPATH:$2"; shift; shift;;
+        -l|--lib)
+            CLOJURE_LIB="$2"; shift; shift;;
         -L|--library-path)
             if [ "$CLOJURE_LIBRARY_PATH" ]; then
                 CLOJURE_LIBRARY_PATH="$CLOJURE_LIBRARY_PATH:$2";
@@ -96,6 +92,13 @@ for arg in "$@"; do
         *) break;;
     esac
 done
+
+if [ -d "$CLOJURE_LIB" ]; then
+    CLOJURE_CLASSPATH="$CLOJURE_CLASSPATH:$CLOJURE_LIB"
+    for jar in "$CLOJURE_LIB"/*.jar; do
+        CLOJURE_CLASSPATH="$CLOJURE_CLASSPATH:$jar"
+    done
+fi
 
 # If we didn't get any files to load on the commandline, we want to run the
 # repl regardless of the -i switch
